@@ -11,7 +11,8 @@ Blue/Green: Cria um ambiente novo (Green) idêntico ao atual (Blue). O tráfego 
 Canary Release: Lança a nova versão para uma pequena porcentagem de usuários ou servidores antes de atualizar toda a infraestrutura, minimizando impactos caso ocorram erros.
 GitOps: Gerenciado através de agentes que sincronizam automaticamente o cluster com o estado declarado em um repositório Git (usando o Argo CD integrado).
 
-Recursos AvançadosAlém do envio do código, o Harness gerencia todo o ciclo de vida do seu deploy de forma inteligente:
+Recursos Avançados:
+Além do envio do código, o Harness gerencia todo o ciclo de vida do seu deploy de forma inteligente:
 Continuous Verification (CV): Conecta-se a ferramentas de observabilidade (Datadog, Prometheus, Splunk) para analisar logs e métricas do sistema logo após o deploy, revertendo a mudança automaticamente se detectar anomalias.
 Governance e Aprovações: Adiciona verificações de conformidade com políticas corporativas (Open Policy Agent - OPA) e fluxos de aprovação integrados com ferramentas como o Jira ou ServiceNow.
 Otimização de Custos: Monitora os gastos da infraestrutura, identificando recursos ociosos e recomendando limites de CPU e memória.

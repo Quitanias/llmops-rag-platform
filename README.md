@@ -1,18 +1,20 @@
 # LLMOps RAG Platform
 
-Esta aplicação é uma API em FastAPI que usa a API da Groq para responder perguntas com base no conteúdo de um manual em texto. O fluxo principal é simples:
+Esta aplicação é uma API em FastAPI que usa um banco vetorial Chroma e a API da Groq para responder perguntas com base no conteúdo do manual `manual_plataforma.txt`.
 
-1. O servidor lê o arquivo [manual_plataforma.txt](manual_plataforma.txt).
-2. A pergunta enviada pelo usuário é combinada com esse contexto.
-3. O modelo da Groq gera uma resposta objetiva, com foco no conteúdo do manual.
+## Arquitetura
+
+- `ingestao.py`: lê `manual_plataforma.txt`, divide o texto em trechos e cria embeddings usando `SentenceTransformerEmbeddingFunction`.
+- `banco_vetorial/`: armazena os embeddings e trechos de texto usados na recuperação de contexto.
+- `main.py`: recebe a pergunta, recupera os documentos mais relevantes do Chroma e consulta o modelo Groq para gerar a resposta.
 
 ## O que a aplicação faz
 
-- Expõe um endpoint POST em `/perguntar`.
+- Cria um endpoint POST em `/perguntar`.
 - Recebe uma pergunta em JSON.
-- Busca o conteúdo de um arquivo local.
-- Envia esse contexto para um modelo da Groq.
-- Retorna a resposta gerada pela IA.
+- Recupera os trechos mais relevantes do banco vetorial.
+- Usa o contexto recuperado em um prompt para o modelo Groq.
+- Retorna a resposta gerada pela IA junto com o contexto utilizado.
 
 ## Tecnologias usadas
 
@@ -20,19 +22,34 @@ Esta aplicação é uma API em FastAPI que usa a API da Groq para responder perg
 - FastAPI
 - Pydantic
 - Groq SDK
+- ChromaDB
 - Uvicorn
+- sentence-transformers
 
 ## Requisitos
 
 Instale as dependências necessárias:
 
 ```bash
-pip install fastapi uvicorn groq
+pip install fastapi uvicorn groq chromadb sentence-transformers
 ```
 
 ## Configuração
 
-Antes de executar, ajuste a chave de API da Groq no arquivo [main.py](main.py) substituindo o valor atual pela sua chave válida.
+1. Ajuste a chave de API da Groq em `main.py` substituindo `API_KEY` pela sua chave válida.
+2. Garanta que o diretório `banco_vetorial/` tenha permissão de escrita.
+
+> Em produção, armazene a chave da Groq em variável de ambiente em vez de deixá-la no código.
+
+## Ingestão de dados
+
+Antes de usar a API, gere o banco vetorial a partir do manual:
+
+```bash
+python ingestao.py
+```
+
+Isso criará ou atualizará a coleção `manual_sre` em `banco_vetorial` com os pedaços do manual processados.
 
 ## Execução
 
@@ -59,20 +76,26 @@ Envia uma pergunta para a API.
 ```bash
 curl -X POST "http://127.0.0.1:8000/perguntar" \
   -H "Content-Type: application/json" \
-  -d '{"pergunta": "Quais são as principais estratégias de deploy suportadas?"}'
+  -d '{"pergunta": "A harness faz otimização de custos?"}'
 ```
 
 #### Exemplo de resposta
 
 ```json
 {
-  "pergunta": "Quais são as principais estratégias de deploy suportadas?",
-  "resposta": "As principais estratégias são Rolling Deployment, Blue/Green, Canary Release e GitOps."
+  "pergunta": "A harness faz otimização de custos?",
+  "contexto_utilizado": [
+    "...trecho 1...",
+    "...trecho 2...",
+    "...trecho 3..."
+  ],
+  "resposta": "..."
 }
 ```
 
 ## Observações
 
-- O conteúdo usado para responder vem do arquivo [manual_plataforma.txt](manual_plataforma.txt).
-- Se a informação não estiver no manual, a resposta deve indicar que a informação não foi localizada.
-- Para uso em produção, é recomendável armazenar a chave da Groq em variável de ambiente em vez de deixá-la diretamente no código.
+- O contexto usado para responder é recuperado do banco vetorial Chroma.
+- Se a informação não estiver no contexto recuperado, o sistema responde que a informação não foi localizada.
+- O modelo usado em `main.py` é `llama-3.3-70b-versatile` com temperatura baixa para respostas mais objetivas.
+- Para atualizar o conteúdo, altere `manual_plataforma.txt` e execute novamente `python ingestao.py`.
