@@ -1,24 +1,24 @@
 # LLMOps RAG Platform
 
-Esta aplicação é uma API em FastAPI que usa um banco vetorial Chroma e a API da Groq para responder perguntas com base no conteúdo do manual `manual_plataforma.txt`.
+This repository contains a FastAPI service that answers technical questions using a Groq model and a Chroma vector store built from `platform_manual.txt`.
 
-## Arquitetura
+## Overview
 
-- `ingestao.py`: lê `manual_plataforma.txt`, divide o texto em trechos e cria embeddings usando `SentenceTransformerEmbeddingFunction`.
-- `banco_vetorial/`: armazena os embeddings e trechos de texto usados na recuperação de contexto.
-- `main.py`: recebe a pergunta, recupera os documentos mais relevantes do Chroma e consulta o modelo Groq para gerar a resposta.
+- `ingest.py`: loads `platform_manual.txt`, splits it into chunks, enriches each chunk, and stores embeddings in Chroma.
+- `vector_db/`: stores the persistent Chroma collection and vector data.
+- `main.py`: receives a question, retrieves relevant chunks from the vector store, builds a prompt, and calls the Groq chat completion API.
 
-## O que a aplicação faz
+## Features
 
-- Cria um endpoint POST em `/perguntar`.
-- Recebe uma pergunta em JSON.
-- Recupera os trechos mais relevantes do banco vetorial.
-- Usa o contexto recuperado em um prompt para o modelo Groq.
-- Retorna a resposta gerada pela IA junto com o contexto utilizado.
+- POST `/ask` endpoint for question answering.
+- JSON request payload with a `question` field.
+- Retrieves relevant context from the local vector database.
+- Uses a low-temperature prompt for more objective answers.
+- Returns the generated answer.
 
-## Tecnologias usadas
+## Tech stack
 
-- Python
+- Python 3.12
 - FastAPI
 - Pydantic
 - Groq SDK
@@ -26,76 +26,92 @@ Esta aplicação é uma API em FastAPI que usa um banco vetorial Chroma e a API 
 - Uvicorn
 - sentence-transformers
 
-## Requisitos
+## Requirements
 
-Instale as dependências necessárias:
-
-```bash
-pip install fastapi uvicorn groq chromadb sentence-transformers
-```
-
-## Configuração
-
-1. Ajuste a chave de API da Groq em `main.py` substituindo `API_KEY` pela sua chave válida.
-2. Garanta que o diretório `banco_vetorial/` tenha permissão de escrita.
-
-> Em produção, armazene a chave da Groq em variável de ambiente em vez de deixá-la no código.
-
-## Ingestão de dados
-
-Antes de usar a API, gere o banco vetorial a partir do manual:
+Install required packages:
 
 ```bash
-python ingestao.py
+pip install -r requirements.txt
 ```
 
-Isso criará ou atualizará a coleção `manual_sre` em `banco_vetorial` com os pedaços do manual processados.
+## Configuration
 
-## Execução
+1. Set the Groq API key in the environment:
 
-Na pasta do projeto, execute:
+```bash
+export GROQ_API_KEY="your_api_key_here"
+```
+
+2. Ensure the `vector_db/` directory is writable.
+
+> For production, keep `GROQ_API_KEY` outside source code and use environment variables or secrets management.
+
+## Data ingestion
+
+Build or refresh the vector store before starting the API:
+
+```bash
+python ingest.py
+```
+
+This creates or updates the `sre_manual` collection in `vector_db` using processed chunks from `platform_manual.txt`.
+
+## Running locally
+
+Start the app from the project folder:
 
 ```bash
 python main.py
 ```
 
-A aplicação ficará disponível em:
+The API will be available at:
 
 ```text
 http://127.0.0.1:8000
 ```
 
-## Endpoint
+## Docker
 
-### POST /perguntar
-
-Envia uma pergunta para a API.
-
-#### Exemplo de requisição
+Build the Docker image:
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/perguntar" \
-  -H "Content-Type: application/json" \
-  -d '{"pergunta": "A harness faz otimização de custos?"}'
+docker build -t llmops-rag-platform .
 ```
 
-#### Exemplo de resposta
+Run the container:
+
+```bash
+docker run -p 8000:8000 -e GROQ_API_KEY="your_api_key_here" llmops-rag-platform
+```
+
+If you do not already have a prebuilt `vector_db/` directory, generate it locally with `python ingest.py` before building the image.
+
+## API endpoint
+
+### POST /ask
+
+Send a question to the API.
+
+#### Example request
+
+```bash
+curl -X POST "http://127.0.0.1:8000/ask" \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Does Harness optimize costs?"}'
+```
+
+#### Example response
 
 ```json
 {
-  "pergunta": "A harness faz otimização de custos?",
-  "contexto_utilizado": [
-    "...trecho 1...",
-    "...trecho 2...",
-    "...trecho 3..."
-  ],
-  "resposta": "..."
+  "question": "Does Harness optimize costs?",
+  "answer": "..."
 }
 ```
 
-## Observações
+## Notes
 
-- O contexto usado para responder é recuperado do banco vetorial Chroma.
-- Se a informação não estiver no contexto recuperado, o sistema responde que a informação não foi localizada.
-- O modelo usado em `main.py` é `llama-3.3-70b-versatile` com temperatura baixa para respostas mais objetivas.
-- Para atualizar o conteúdo, altere `manual_plataforma.txt` e execute novamente `python ingestao.py`.
+- Answers are based on the context retrieved from the Chroma vector store.
+- If the information is not present in the retrieved context, the API will indicate that it does not have the information.
+- `main.py` uses the `llama-3.3-70b-versatile` model with a low temperature setting for concise and focused answers.
+- To refresh the data, update `platform_manual.txt` and run `python ingest.py` again.
