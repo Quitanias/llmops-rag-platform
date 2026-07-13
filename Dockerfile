@@ -10,7 +10,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the application code and the pre-built vector database
 COPY main.py .
-COPY vector_db/ ./vector_db/
 
 # Expose the API port
 EXPOSE 8000
