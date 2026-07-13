@@ -4,3 +4,4 @@ pydantic
 groq
 chromadb
 sentence-transformers
+python-multipart

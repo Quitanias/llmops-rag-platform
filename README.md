@@ -1,34 +1,36 @@
-# LLMOps RAG Platform
+```bash
+# LLMOps RAG Platform — Enterprise Question Answering, Fast
 
-This repository contains a FastAPI service that answers technical questions using a Groq model and a Chroma vector store built from `platform_manual.txt`.
+LLMOps RAG Platform is a production-ready, developer-first Question Answering API that combines a local Chroma vector store with the Groq chat model to convert your technical manuals into an on-demand, accurate knowledge assistant.
 
-## Overview
+Whether you're building internal SRE tooling, embedding searchable docs in a support portal, or standing up a secure RAG service behind your network, this repo gives you a concise, reproducible starting point.
 
-- `ingest.py`: loads `platform_manual.txt`, splits it into chunks, enriches each chunk, and stores embeddings in Chroma.
-- `vector_db/`: stores the persistent Chroma collection and vector data.
-- `main.py`: receives a question, retrieves relevant chunks from the vector store, builds a prompt, and calls the Groq chat completion API.
+Why this project matters:
 
-## Features
+- Fast developer iteration: local vector DB + lightweight FastAPI service.
+- Focused answers: retrieval-augmented prompts and low-temperature model calls reduce hallucination.
+- Docker-ready: package and ship a reproducible runtime.
 
-- POST `/ask` endpoint for question answering.
-- JSON request payload with a `question` field.
-- Retrieves relevant context from the local vector database.
-- Uses a low-temperature prompt for more objective answers.
-- Returns the generated answer.
+## What's included
 
-## Tech stack
+- `ingest.py` — build the local vector database from `platform_manual.txt` (splits, enriches and stores embeddings).
+- `vector_db/` — persistent Chroma DB folder produced by ingestion.
+- `main.py` — FastAPI service exposing a single conversational endpoint: `POST /ask`.
+- `requirements.txt` — Python dependencies.
+- `Dockerfile` — how to containerize the service for deployment.
 
-- Python 3.12
-- FastAPI
-- Pydantic
-- Groq SDK
-- ChromaDB
-- Uvicorn
-- sentence-transformers
+## Quick Benefits (elevator pitch)
+
+- Answer production-grade SRE and ops questions directly from your manuals.
+- Ship a small, auditable RAG service that keeps sensitive documentation in your environment.
+- Reduce support overhead by surfacing precise, context-backed answers.
 
 ## Requirements
 
-Install required packages:
+- Python 3.11+ (tested on 3.12)
+- Docker (optional, for packaging)
+
+Install dependencies:
 
 ```bash
 pip install -r requirements.txt
@@ -36,63 +38,128 @@ pip install -r requirements.txt
 
 ## Configuration
 
-1. Set the Groq API key in the environment:
+1. Set your Groq API key as an environment variable:
 
 ```bash
 export GROQ_API_KEY="your_api_key_here"
 ```
 
-2. Ensure the `vector_db/` directory is writable.
+2. Ensure `vector_db/` is writable.
 
-> For production, keep `GROQ_API_KEY` outside source code and use environment variables or secrets management.
+Security note: Never commit `GROQ_API_KEY` to source control — use secrets management for production.
 
-## Data ingestion
+## Build the vector database
 
-Build or refresh the vector store before starting the API:
+Before using the API, create or refresh the vector store from your manual:
 
 ```bash
 python ingest.py
 ```
 
-This creates or updates the `sre_manual` collection in `vector_db` using processed chunks from `platform_manual.txt`.
+This reads `platform_manual.txt`, creates enriched chunks, and stores them in `vector_db/` under the `sre_manual` collection.
 
-## Running locally
+If you update your manual, run the same command to refresh the index.
 
-Start the app from the project folder:
+## Run locally
+
+Start the API:
 
 ```bash
 python main.py
 ```
 
-The API will be available at:
+By default the app listens on `0.0.0.0:8000` (suitable for Docker). Locally you can reach it at:
 
 ```text
 http://127.0.0.1:8000
 ```
 
-## Docker
+## Docker (recommended for reproducible deployments)
 
-Build the Docker image:
+Build the image:
 
 ```bash
 docker build -t llmops-rag-platform .
 ```
 
-Run the container:
+Run the container (inject your API key):
 
 ```bash
-docker run -p 8000:8000 -e GROQ_API_KEY="your_api_key_here" llmops-rag-platform
+docker run --rm -p 8000:8000 -e GROQ_API_KEY="your_api_key_here" llmops-rag-platform
 ```
 
-If you do not already have a prebuilt `vector_db/` directory, generate it locally with `python ingest.py` before building the image.
+Note: If you want the container to include a prebuilt `vector_db/`, generate `vector_db/` locally with `python ingest.py` and include it during image build (the existing Dockerfile copies `vector_db/` into the image).
 
-## API endpoint
+## API Reference — Developer Examples
 
-### POST /ask
+## Uploading and Updating Data
 
-Send a question to the API.
+There are a few common ways to get your manual or a prebuilt vector database into the running service. Pick the workflow that fits your deployment strategy:
 
-#### Example request
+- Include a prebuilt `vector_db/` in the image (bake it in):
+
+  1. Generate the index locally:
+
+  ```bash
+  python ingest.py
+  ```
+
+  2. Build the Docker image (the `Dockerfile` copies `vector_db/` into the image):
+
+  ```bash
+  docker build -t llmops-rag-platform .
+  ```
+
+- Mount the `vector_db/` directory at runtime (preferred for iterative development):
+
+  ```bash
+  docker run --rm -p 8000:8000 \
+    -e GROQ_API_KEY="your_api_key_here" \
+    -v $(pwd)/vector_db:/app/vector_db \
+    llmops-rag-platform
+  ```
+
+  This lets you regenerate `vector_db/` locally (with `python ingest.py`) without rebuilding the image; simply restart the container to pick up changes.
+
+- Update the manual and rebuild the index:
+
+  1. Edit `platform_manual.txt`.
+  2. Run:
+
+  ```bash
+  python ingest.py
+  ```
+
+  3. Restart the service (or rebuild the image if you baked the index into it).
+
+- Note about upload endpoints: this project does not include an HTTP "upload" endpoint to push documents directly to the running API. If you need that workflow (upload → ingest → live update), I can add an `/upload` endpoint that accepts files, runs the ingestion for the new document, and updates the Chroma collection in place.
+
+Notes:
+
+- Avoid concurrent writes to `vector_db/` from multiple processes. Use a single ingest job or offline rebuilds.
+- When mounting a host directory, ensure ownership and file permissions allow the container user to read the index.
+
+
+Endpoint: `POST /ask`
+
+Request JSON schema:
+
+```json
+{
+  "question": "<your question here>"
+}
+```
+
+Successful response:
+
+```json
+{
+  "question": "Does Harness optimize costs?",
+  "answer": "...model generated answer..."
+}
+```
+
+Curl example:
 
 ```bash
 curl -X POST "http://127.0.0.1:8000/ask" \
@@ -100,18 +167,45 @@ curl -X POST "http://127.0.0.1:8000/ask" \
   -d '{"question": "Does Harness optimize costs?"}'
 ```
 
-#### Example response
+Python example (requests):
 
-```json
-{
-  "question": "Does Harness optimize costs?",
-  "answer": "..."
-}
+```python
+import requests
+
+resp = requests.post(
+    "http://127.0.0.1:8000/ask",
+    json={"question": "Does Harness optimize costs?"}
+)
+print(resp.json())
 ```
 
-## Notes
+Advanced example: using `curl` with Docker-hosted service (from host):
 
-- Answers are based on the context retrieved from the Chroma vector store.
-- If the information is not present in the retrieved context, the API will indicate that it does not have the information.
-- `main.py` uses the `llama-3.3-70b-versatile` model with a low temperature setting for concise and focused answers.
-- To refresh the data, update `platform_manual.txt` and run `python ingest.py` again.
+```bash
+curl -X POST "http://localhost:8000/ask" \
+  -H "Content-Type: application/json" \
+  -d '{"question": "How do I apply Terraform in prod?"}'
+```
+
+## Troubleshooting & Tips
+
+- If you get an authentication error, confirm `GROQ_API_KEY` is set in the environment used to start the app.
+- If no results are returned, check that `vector_db/` exists and was generated with `ingest.py`.
+- To debug retrieval, inspect the `vector_db/` folder and run `ingest.py` again to ensure chunks were created.
+- Consider instrumenting `main.py` to log `retrieved_texts` during development (avoid logging sensitive sections in production).
+
+## Next steps — production hardening
+
+- Move `GROQ_API_KEY` to a secrets manager (Vault, AWS Secrets Manager, etc.).
+- Add health checks and readiness probes for orchestration (Kubernetes `livenessProbe` / `readinessProbe`).
+- Limit model call concurrency and add rate limiting to the FastAPI app.
+- Add tests validating that important manual sections are answerable by the endpoint.
+
+## Want help?
+
+If you'd like, I can:
+
+- Add a `docker-compose.yml` to wire the service and a simple health-check container.
+- Add an OpenAPI examples section and automated tests for core queries.
+
+Enjoy — this service gets you from docs to production-ready answers in minutes.
