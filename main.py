@@ -35,7 +35,7 @@ def search_sre_manual(query: str) -> str:
 
 def get_current_weather(location: str) -> str:
     """Tool: Simulated external API"""
-    print(f"🛠️ [Tool Called] Fetching weather for: {location}")
+    print(f"[Tool Called] Fetching weather for: {location}")
     return f"The current weather in {location} is 28 degrees, sunny."
 
 available_tools = {
@@ -140,8 +140,8 @@ async def process_question(request: QuestionRequest):
             # FinOps Metrics
             used_tokens = final_response.usage.total_tokens
             estimated_cost = (used_tokens / 1000) * 0.0007 # Base cost for LLaMA 70B
-            print(f"📊 [FinOps] Tokens consumed: {used_tokens}")
-            print(f"💰 [FinOps] Estimated cost: ${estimated_cost:.6f}")
+            print(f"[FinOps] Tokens consumed: {used_tokens}")
+            print(f"[FinOps] Estimated cost: ${estimated_cost:.6f}")
             
         else:
             final_answer = response_message.content

@@ -1,4 +1,3 @@
-# Use a slim Python image to reduce size
 FROM python:3.12-slim
 
 # Set the working directory inside the container
@@ -8,10 +7,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the application code and the pre-built vector database
 COPY main.py .
 
-# Expose the API port
 EXPOSE 8000
 
 # Command to run the API
